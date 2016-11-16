@@ -1,35 +1,120 @@
-from time import clock
 from subprocess import call
+from os import remove, devnull, path
+from collections import defaultdict
+from time import clock
 
-import numpy as np
-from scipy.io import wavfile
-from scipy.signal import resample
+from config import Config
+from spectrum import Spectrogram, Comparator
+from grid_path import Path
+from util import Subs, Timing, file_to_text
 
-from spectrum import Spectrogram, Comparator, extract_mono, name_split
+
+def delete_files(to_delete):
+    for file in to_delete:
+        remove(file)
 
 
-def file_open(filename):
-    name, ext = name_split(filename)
-    if ext != 'wav':
-        call('ffmpeg -i {0} -vn -ac 1 {1}.wav'.format(filename, name), shell=True)
-        filename = name + '.wav'
-    rate, data = wavfile.read(filename)
-    print("Rate:", rate)
-    data = extract_mono(data)
-    # sec1, sec2 = 0, 300
-    # r1, r2 = 100, 150
-    # if 'Y' in filename:
-    #    return rate, np.concatenate((data[rate*sec1:rate*r1], data[rate*r2:rate*sec2]))
-    return rate, data  # [rate*sec1:rate*sec2]
+def shift_subs(subs, sub_path):
+    """Двигает сабы, в subs объект типа util.Subs, в sub_path типа grid_path.Path
+    Предполагается, что в sub_path продолжительности участков указаны в сантисекундах."""
+    # TODO: Нужна корректная работа для сабов, выходящих за рамки видео и более быстрая в общем случае.
+    ss_to_event = defaultdict(list)
+    for event in subs:
+        ss_to_event[event.timing.begin_ss].append((event, 'b'))
+        ss_to_event[event.timing.end_ss].append((event, 'e'))
+    prev_x = -1
+    for x, y in sub_path.on_path:
+        for event, mark in ss_to_event[x]:
+            if mark == 'b':
+                event.timing.begin_ss = y
+            if mark == 'e' and x != prev_x:
+                event.timing.end_ss = y
+        prev_x = x
+    corrupted_events = []  # События, длительность которых была изменена в результате сдвига
+    for event in subs:
+        begin, end = event.timing.begin_str, event.timing.end_str
+        event.timing.str_update()
+        if len(event.timing) != len(Timing(begin, end)):
+            corrupted_events.append(repr(event))
+    print("Corrupted events: {}".format("\n"+"\n".join(corrupted_events) if corrupted_events else None))
+    print("Successful shift!")
 
 
 def main():
-    zero_time = clock()
-    x, y = (Spectrogram(file, file_open) for file in ('D:/Video/Spazz-6x24.wav', 'D:/Video/YP-1T-06x24.wav'))
-    z = Comparator(x, y)
-    print("Final path:", z.full_search)
-    print("Total time:", clock()-zero_time)
-
+    """В режиме save_wav=True wav-файлы, генерируемые программой во время работы, не удаляются после окончания,
+    а используются при повторных запусках в этом же режиме."""
+    # inp = input("What files to use?\n")
+    print("Processing...")
+    dirname = path.dirname(__file__) + '/'
+    # Subs.verbose = False  # Можно раскомментарить, чтобы библиотека util не предупреждала о наложениях событий и т.п.
+    """
+    sub_path, subtitles, media, to_delete, gen_path = None, [], [], set(), None
+    for filename in inp.strip().split():
+        if ':' not in filename:
+            filename = dirname + filename
+        filename = filename.replace('\\\\', '/').replace('\\', '/')
+        if not path.isfile(filename):
+            raise IOError('File not found: {}'.format(filename))
+        tmp = filename.split('.')
+        name, ext = ".".join(tmp[:-1]), tmp[-1]
+        if ext == 'txt':
+            if sub_path is None:
+                sub_path = Path.parse(file_to_text(filename))
+            else:
+                raise IOError('Only one text file allowed')
+        elif ext == 'ass':
+            subtitles.append((Subs().parse(filename), name))
+        else:
+            wav_file = name + '_tmp{}Hz.wav'.format(default_hz)
+            if Config.REWRITE_WAV or not path.isfile(wav_file):
+                if path.isfile(wav_file):
+                    remove(wav_file)
+                call('ffmpeg -i {0} -ac 1 -ar {1} {2}'.format(filename, default_hz, wav_file), shell=True,
+                     stderr=open(devnull, 'w'))  # Весь вывод FFmpeg отправляется в devnull, чтобы не засорять консоль
+            media.append(wav_file)
+            to_delete.add(wav_file)
+    if len(media) not in (0, 2):
+        if not Config.SAVE_WAV:
+            delete_files(to_delete)
+        print("Error: the input string must contain either 0 or 2 media files")
+    """
+    to_delete, final_path, begin_stamp = set(), None, clock()
+    if Config.TEXT_FILE is None:
+        media = Config.MEDIA
+        if len(media) not in (0, 2):
+            print("Error: 0 or 2 media files should be given")
+        if len(media) == 2:
+            spectrums = []
+            for filename in media:
+                if ':' not in filename:
+                    filename = dirname + filename
+                tmp = filename.split('.')
+                name, ext = ".".join(tmp[:-1]), tmp[-1]
+                wav_file = name + '_tmp{}Hz.wav'.format(Config.DEFAULT_HZ)
+                if Config.REWRITE_WAV or not path.isfile(wav_file):
+                    if path.isfile(wav_file):
+                        remove(wav_file)
+                    call('ffmpeg -i {0} -ac 1 -ar {1} {2}'.format(filename, Config.DEFAULT_HZ, wav_file), shell=True,
+                         stderr=open(devnull, 'w'))  # Весь вывод FFmpeg отправляется в devnull, чтобы не засорять консоль
+                to_delete.add(wav_file)
+                spectrums.append(Spectrogram(wav_file))
+            cmp = Comparator(spectrums[0], spectrums[1])
+            final_path = cmp.full_search()
+            f = open(Config.LOG_FILE, 'wb')
+            f.write(str(final_path).encode('utf-8'))
+            f.close()
+            if not Config.SAVE_WAV:
+                delete_files(to_delete)
+    else:
+        final_path = Path.parse(file_to_text(Config.TEXT_FILE))
+    for name in Config.ASS_FILES:
+        subs = Subs().parse(name)
+        print("Shifting subs in {}".format(name))
+        shift_subs(subs, final_path)
+        subs.output(name[:-4]+'_shifted.ass', remove_garbage=False, default_styles=False, default_events='full')
+    if not Config.ASS_FILES:
+        print("No subtitles to shift.")
+    print('Total time: {} sec'.format(clock()-begin_stamp))
 
 if __name__ == '__main__':
     main()
