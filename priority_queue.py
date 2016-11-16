@@ -1,3 +1,4 @@
+# Obsolete module
 class QueueElement:
     # Вспомогательный класс для хранения элементов PriorityQueue
     def __init__(self, key, priority, cost, path):
