@@ -30,13 +30,13 @@ class Timing:
         self.end_ss += ss
         if self.begin_ss < 0:
             raise ValueError("Negative time stamp")
-        self._str_update()
+        self.str_update()
         return self
 
     def __imul__(self, koef):
         """Умножение конца и начала на одно и то же число number, фича для смены частоты кадров"""
         self.begin_ss, self.end_ss = (int(i*koef) for i in (self.begin_ss, self.end_ss))
-        self._str_update()
+        self.str_update()
         return self
 
     def __len__(self):
@@ -52,7 +52,7 @@ class Timing:
     def pad_view(self):
         tmp, ss = divmod(self.begin_ss, 100)
         m, s = divmod(tmp, 60)
-        return "{m}:{s:0>2}.{ss:0>2},{ls}.{lss:0>2}".format(m=m, s=s, ss=ss, ls=len(self)//100, lss=len(self)%100)
+        return "{m:0>2}:{s:0>2}.{ss:0>2},{ls}.{lss:0>2}".format(m=m, s=s, ss=ss, ls=len(self)//100, lss=len(self)%100)
 
     @staticmethod
     def to_ss(string):
@@ -67,7 +67,7 @@ class Timing:
         h, m = divmod(tmp, 60)
         return "{h}:{m:0>2}:{s:0>2}.{ss:0>2}".format(h=h, m=m, s=s, ss=ss)
 
-    def _str_update(self):
+    def str_update(self):
         self.begin_str, self.end_str = map(self.to_string, (self.begin_ss, self.end_ss))
 
 
@@ -173,6 +173,8 @@ class Subs:
         if match is None:
             raise SyntaxError("Bad .ass file structure in {}, cannot process it.".format(filename))
         self.info, X, Y, _, self.garbage, styles, events = [match.group(i) for i in range(1, 8)]
+        if self.garbage is None:
+            self.garbage = ''
         if self.verbose and int(X) != self.ResX or int(Y) != self.ResY:
             print('Warning: wrong resolution in file "{}".'.format(filename))
         m_styles = re.search(r'(Format: [a-zA-Z, ]*)\n(.*)', styles, re.DOTALL)
