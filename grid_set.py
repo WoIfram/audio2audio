@@ -1,7 +1,7 @@
 from bisect import bisect
 from itertools import chain, islice
 
-
+# Obsolete module
 class DisjointSegments:
     # Структура для хранения наборов целых точек на прямой, сильно группирующихся в отрезки
     # TODO: Возможно, стоит оптимизировать асимптотику с линейной до логарифмической с помощью interval tree
