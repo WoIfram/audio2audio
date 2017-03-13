@@ -47,37 +47,6 @@ def main():
     print("Processing...")
     dirname = path.dirname(__file__) + '/'
     # Subs.verbose = False  # Можно раскомментарить, чтобы библиотека util не предупреждала о наложениях событий и т.п.
-    """
-    sub_path, subtitles, media, to_delete, gen_path = None, [], [], set(), None
-    for filename in inp.strip().split():
-        if ':' not in filename:
-            filename = dirname + filename
-        filename = filename.replace('\\\\', '/').replace('\\', '/')
-        if not path.isfile(filename):
-            raise IOError('File not found: {}'.format(filename))
-        tmp = filename.split('.')
-        name, ext = ".".join(tmp[:-1]), tmp[-1]
-        if ext == 'txt':
-            if sub_path is None:
-                sub_path = Path.parse(file_to_text(filename))
-            else:
-                raise IOError('Only one text file allowed')
-        elif ext == 'ass':
-            subtitles.append((Subs().parse(filename), name))
-        else:
-            wav_file = name + '_tmp{}Hz.wav'.format(default_hz)
-            if Config.REWRITE_WAV or not path.isfile(wav_file):
-                if path.isfile(wav_file):
-                    remove(wav_file)
-                call('ffmpeg -i {0} -ac 1 -ar {1} {2}'.format(filename, default_hz, wav_file), shell=True,
-                     stderr=open(devnull, 'w'))  # Весь вывод FFmpeg отправляется в devnull, чтобы не засорять консоль
-            media.append(wav_file)
-            to_delete.add(wav_file)
-    if len(media) not in (0, 2):
-        if not Config.SAVE_WAV:
-            delete_files(to_delete)
-        print("Error: the input string must contain either 0 or 2 media files")
-    """
     to_delete, final_path, begin_stamp = set(), None, clock()
     if Config.TEXT_FILE is None:
         media = Config.MEDIA
@@ -86,7 +55,7 @@ def main():
         if len(media) == 2:
             spectrums = []
             for filename in media:
-                if ':' not in filename:
+                if not path.isabs(filename):
                     filename = dirname + filename
                 tmp = filename.split('.')
                 name, ext = ".".join(tmp[:-1]), tmp[-1]
@@ -94,8 +63,8 @@ def main():
                 if Config.REWRITE_WAV or not path.isfile(wav_file):
                     if path.isfile(wav_file):
                         remove(wav_file)
-                    call('ffmpeg -i {0} -ac 1 -ar {1} {2}'.format(filename, Config.DEFAULT_HZ, wav_file), shell=True,
-                         stderr=open(devnull, 'w'))  # Весь вывод FFmpeg отправляется в devnull, чтобы не засорять консоль
+                    call('ffmpeg -i "{0}" -y -ac 1 -ar {1} {2}'.format(filename, Config.DEFAULT_HZ, wav_file), shell=True,
+                         stderr=open(devnull, 'w'))  # Весь вывод FFmpeg идёт в devnull, дабы не засорять консоль
                 to_delete.add(wav_file)
                 spectrums.append(Spectrogram(wav_file))
             cmp = Comparator(spectrums[0], spectrums[1])

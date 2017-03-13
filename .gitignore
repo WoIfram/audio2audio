@@ -1,1 +1,4 @@
 .idea/*
+*.out
+*_shifted.ass
+*.mkv
