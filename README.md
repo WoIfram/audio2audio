@@ -1,5 +1,5 @@
 # disclaimer
-This project is abandonned for indefinite time, although I'm planning to return and make a fast and user-friendly version of the program. At the moment you can only experiment by editing `config.py` file and running `main.py`. If you have any questions related to the usage of the script or the algorithm, feel free to e-mail me at wolframep@yandex.ru in English or Russian
+This project is abandoned for indefinite time, although I'm planning to return and make a fast and user-friendly version of the program. At the moment you can only experiment by editing `config.py` file and running `main.py`. If you have any questions related to the usage of the script or the algorithm, feel free to e-mail me at wolframep@yandex.ru in English or Russian
 
 ---
 
